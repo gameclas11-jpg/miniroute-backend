@@ -3,39 +3,68 @@ const { Pool } = require("pg");
 const cors = require("cors");
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
+/**
+ * 🔥 DATABASE (Render + Local uyumlu)
+ */
 const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "miniroute",
-  password: "postgres",
-  port: 5432,
+  connectionString: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/miniroute",
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
-app.get("/health", async (req, res) => {
-  res.json({ status: "MiniRoute API running" });
+/**
+ * ✅ HEALTH CHECK (STANDARD)
+ */
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "OK",
+    service: "MiniRoute Backend",
+  });
 });
 
-app.post("/location", async (req, res) => {
+/**
+ * 📍 LOCATION INSERT
+ */
+app.post("/api/location", async (req, res) => {
   const { driver_id, latitude, longitude, speed } = req.body;
+
+  if (!driver_id || !latitude || !longitude) {
+    return res.status(400).json({
+      error: "Missing required fields",
+    });
+  }
 
   try {
     await pool.query(
       "INSERT INTO locations(driver_id, latitude, longitude, speed) VALUES($1,$2,$3,$4)",
-      [driver_id, latitude, longitude, speed]
+      [driver_id, latitude, longitude, speed || 0]
     );
 
-    res.json({ success: true });
+    res.json({
+      success: true,
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "DB error" });
+    console.error("DB ERROR:", err);
+    res.status(500).json({
+      error: "Database error",
+    });
   }
 });
 
 /**
- * 🔥 VPS / Render uyumlu PORT yönetimi
+ * 🚀 ROOT TEST (opsiyonel ama çok faydalı)
+ */
+app.get("/", (req, res) => {
+  res.send("MiniRoute Backend is running 🚀");
+});
+
+/**
+ * 🔥 PORT (Render zorunlu)
  */
 const PORT = process.env.PORT || 3000;
 
