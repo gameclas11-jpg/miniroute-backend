@@ -7,9 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/**
- * 🔥 DATABASE (Render + Local uyumlu)
- */
 const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
@@ -20,7 +17,7 @@ const pool = new Pool({
 });
 
 /**
- * 🔥 DB INIT (AUTO TABLE CREATE)
+ * 🔥 DB INIT
  */
 async function initDatabase() {
   try {
@@ -50,7 +47,7 @@ async function initDatabase() {
 initDatabase();
 
 /**
- * ✅ HEALTH CHECK
+ * HEALTH
  */
 app.get("/api/health", (req, res) => {
   res.json({
@@ -60,39 +57,44 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * 🔐 DRIVER REGISTER / VERIFY (AUTO FIX)
+ * 🔐 DRIVER LOGIN (DOUBLE ENDPOINT FIX)
  */
-app.post("/api/driver-login", async (req, res) => {
+const driverLoginHandler = async (req, res) => {
   const { driver_id } = req.body;
 
   if (!driver_id) {
     return res.status(400).json({
-      error: "driver_id required",
+      success: false,
+      message: "driver_id required",
     });
   }
 
   try {
-    // 🔥 yoksa oluştur
     await pool.query(
       "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING",
       [driver_id]
     );
 
-    res.json({
+    return res.json({
       success: true,
       driver_id,
     });
   } catch (err) {
     console.error("❌ DRIVER LOGIN ERROR:", err);
 
-    res.status(500).json({
-      error: "Database error",
+    return res.status(500).json({
+      success: false,
+      message: "Database error",
     });
   }
-});
+};
+
+// 🔥 HER İKİSİ DE ÇALIŞIR
+app.post("/api/driver-login", driverLoginHandler);
+app.post("/api/driver/login", driverLoginHandler);
 
 /**
- * 📍 LOCATION INSERT (AUTO DRIVER FIX)
+ * 📍 LOCATION
  */
 app.post("/api/location", async (req, res) => {
   const { driver_id, latitude, longitude, speed } = req.body;
@@ -104,18 +106,10 @@ app.post("/api/location", async (req, res) => {
   }
 
   try {
-    // 🔥 DRIVER AUTO CREATE
     await pool.query(
       "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING",
       [driver_id]
     );
-
-    console.log("📡 LOCATION:", {
-      driver_id,
-      latitude,
-      longitude,
-      speed,
-    });
 
     await pool.query(
       `INSERT INTO locations(driver_id, latitude, longitude, speed)
@@ -134,7 +128,7 @@ app.post("/api/location", async (req, res) => {
 });
 
 /**
- * 🚗 VEHICLES ENDPOINT (ANDROID FULL COMPATIBLE)
+ * 🚗 VEHICLES
  */
 app.get("/api/vehicles", async (req, res) => {
   try {
@@ -163,17 +157,14 @@ app.get("/api/vehicles", async (req, res) => {
 });
 
 /**
- * 🚀 ROOT TEST
+ * ROOT
  */
 app.get("/", (req, res) => {
   res.send("MiniRoute Backend is running 🚀");
 });
 
-/**
- * 🔥 PORT
- */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("🚀 MiniRoute server running on port " + PORT);
+  console.log("🚀 Server running on " + PORT);
 });
