@@ -7,6 +7,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+/**
+ * DATABASE
+ */
 const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
@@ -17,7 +20,7 @@ const pool = new Pool({
 });
 
 /**
- * 🔥 DB INIT
+ * DB INIT (SADECE TABLO)
  */
 async function initDatabase() {
   try {
@@ -57,7 +60,9 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * 🔐 DRIVER LOGIN (DOUBLE ENDPOINT FIX)
+ * 🔐 DRIVER LOGIN (DOĞRU YAPI)
+ * → driver yoksa oluşturur
+ * → varsa direkt kabul eder
  */
 const driverLoginHandler = async (req, res) => {
   const { driver_id } = req.body;
@@ -70,8 +75,9 @@ const driverLoginHandler = async (req, res) => {
   }
 
   try {
+    // 🔥 kritik satır (doğru çözüm)
     await pool.query(
-      "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING",
+      "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
       [driver_id]
     );
 
@@ -89,7 +95,9 @@ const driverLoginHandler = async (req, res) => {
   }
 };
 
-// 🔥 HER İKİSİ DE ÇALIŞIR
+/**
+ * 🔥 İKİ ENDPOINT (ANDROID UYUMLU)
+ */
 app.post("/api/driver-login", driverLoginHandler);
 app.post("/api/driver/login", driverLoginHandler);
 
@@ -106,8 +114,9 @@ app.post("/api/location", async (req, res) => {
   }
 
   try {
+    // driver yoksa oluştur
     await pool.query(
-      "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT DO NOTHING",
+      "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
       [driver_id]
     );
 
@@ -128,7 +137,7 @@ app.post("/api/location", async (req, res) => {
 });
 
 /**
- * 🚗 VEHICLES
+ * 🚗 VEHICLES (ANDROID UYUMLU FORMAT)
  */
 app.get("/api/vehicles", async (req, res) => {
   try {
@@ -163,6 +172,9 @@ app.get("/", (req, res) => {
   res.send("MiniRoute Backend is running 🚀");
 });
 
+/**
+ * PORT
+ */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
