@@ -30,12 +30,11 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * 📍 LOCATION INSERT (FIXED)
+ * 📍 LOCATION INSERT (STABLE)
  */
 app.post("/api/location", async (req, res) => {
   const { driver_id, latitude, longitude, speed } = req.body;
 
-  // 🔥 FIX: doğru null kontrolü
   if (driver_id == null || latitude == null || longitude == null) {
     return res.status(400).json({
       error: "Missing required fields",
@@ -43,7 +42,7 @@ app.post("/api/location", async (req, res) => {
   }
 
   try {
-    console.log("📡 LOCATION DATA:", {
+    console.log("📡 LOCATION:", {
       driver_id,
       latitude,
       longitude,
@@ -55,14 +54,44 @@ app.post("/api/location", async (req, res) => {
       [driver_id, latitude, longitude, speed || 0]
     );
 
-    res.json({
-      success: true,
-    });
+    res.json({ success: true });
   } catch (err) {
     console.error("❌ DB ERROR:", err);
 
     res.status(500).json({
       error: "Database error",
+    });
+  }
+});
+
+/**
+ * 🚗 VEHICLES ENDPOINT (ANDROID CRASH FIX)
+ */
+app.get("/api/vehicles", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        driver_id AS id,
+        latitude AS lat,
+        longitude AS lng,
+        speed,
+        created_at
+      FROM locations
+      ORDER BY created_at DESC
+      LIMIT 50
+    `);
+
+    // 🔥 ANDROID UYUMLU FORMAT
+    res.json({
+      vehicles: result.rows
+    });
+
+  } catch (err) {
+    console.error("VEHICLES ERROR:", err);
+
+    // 🔥 fallback da aynı format
+    res.json({
+      vehicles: []
     });
   }
 });
