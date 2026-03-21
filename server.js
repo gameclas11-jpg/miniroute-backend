@@ -20,7 +20,7 @@ const pool = new Pool({
 });
 
 /**
- * DB INIT (SADECE TABLO)
+ * DB INIT
  */
 async function initDatabase() {
   try {
@@ -39,6 +39,12 @@ async function initDatabase() {
         speed DOUBLE PRECISION,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    // 🔥 PERFORMANS + DOĞRU QUERY İÇİN INDEX
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_locations_driver_time
+      ON locations(driver_id, created_at DESC);
     `);
 
     console.log("✅ Database ready");
@@ -60,9 +66,7 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * 🔐 DRIVER LOGIN (DOĞRU YAPI)
- * → driver yoksa oluşturur
- * → varsa direkt kabul eder
+ * DRIVER LOGIN
  */
 const driverLoginHandler = async (req, res) => {
   const { driver_id } = req.body;
@@ -75,7 +79,6 @@ const driverLoginHandler = async (req, res) => {
   }
 
   try {
-    // 🔥 kritik satır (doğru çözüm)
     await pool.query(
       "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
       [driver_id]
@@ -95,14 +98,11 @@ const driverLoginHandler = async (req, res) => {
   }
 };
 
-/**
- * 🔥 İKİ ENDPOINT (ANDROID UYUMLU)
- */
 app.post("/api/driver-login", driverLoginHandler);
 app.post("/api/driver/login", driverLoginHandler);
 
 /**
- * 📍 LOCATION
+ * LOCATION (LOG + WRITE)
  */
 app.post("/api/location", async (req, res) => {
   const { driver_id, latitude, longitude, speed } = req.body;
@@ -114,7 +114,6 @@ app.post("/api/location", async (req, res) => {
   }
 
   try {
-    // driver yoksa oluştur
     await pool.query(
       "INSERT INTO drivers (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
       [driver_id]
@@ -137,20 +136,20 @@ app.post("/api/location", async (req, res) => {
 });
 
 /**
- * 🚗 VEHICLES (ANDROID UYUMLU FORMAT)
+ * 🚗 VEHICLES (🔥 ROOT FIX BURADA)
+ * → HER DRIVER İÇİN SADECE EN SON KONUM
  */
 app.get("/api/vehicles", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT 
+      SELECT DISTINCT ON (driver_id)
         driver_id AS id,
         latitude AS lat,
         longitude AS lng,
         speed,
         created_at
       FROM locations
-      ORDER BY created_at DESC
-      LIMIT 50
+      ORDER BY driver_id, created_at DESC
     `);
 
     res.json({
